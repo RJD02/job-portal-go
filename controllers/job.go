@@ -3,6 +3,7 @@ package controllers
 import (
 	"RJD02/job-portal/config"
 	"RJD02/job-portal/models"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
@@ -56,6 +58,25 @@ func GetJobs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	// return the jobs
 	json.NewEncoder(w).Encode(jobs)
+}
+
+func GetJob(w http.ResponseWriter, r *http.Request) {
+	var j models.Job
+	id := chi.URLParam(r, "id")
+	err := config.AppConfig.Db.QueryRow("select id, company_name, created, img, description, role from job_portal.jobs where id = $1", id).Scan(&j.Id, &j.CompanyName, &j.Created, &j.Img, &j.Description, &j.Role)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Job not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Error in getting job", http.StatusInternalServerError)
+			log.Println("Error in getting job", err)
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(j)
+
 }
 
 func AddJob(w http.ResponseWriter, r *http.Request) {

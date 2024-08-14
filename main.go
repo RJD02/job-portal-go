@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/joho/godotenv"
 )
 
 func home(w http.ResponseWriter, r *http.Request) {
@@ -31,6 +32,14 @@ func addAdmin(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+
+	// init the dotenv
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading the dot env file")
+		return
+	}
+
 	// postgres_db init
 	postgres_db, err := db.Connect()
 	if err != nil {

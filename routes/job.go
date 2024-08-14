@@ -7,5 +7,6 @@ import (
 
 func JobRouter(jobRouter chi.Router) {
 	jobRouter.Get("/", controllers.GetJobs)
+	jobRouter.Get("/{id}", controllers.GetJob)
 	jobRouter.Post("/", controllers.AddJob)
 }

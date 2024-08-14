@@ -2,18 +2,14 @@ package db
 
 import (
 	"database/sql"
+	"log"
+	"os"
+	"strconv"
 
 	"RJD02/job-portal/models"
 	"fmt"
-	_ "github.com/lib/pq"
-)
 
-const (
-	host     = "localhost"
-	port     = 5432
-	user     = "postgres"
-	password = "postgres"
-	dbname   = "postgres"
+	_ "github.com/lib/pq"
 )
 
 func TestDB(db *sql.DB) {
@@ -39,6 +35,15 @@ func TestDB(db *sql.DB) {
 }
 
 func Connect() (*sql.DB, error) {
+	host := os.Getenv("host")
+	port, err := strconv.Atoi(os.Getenv("port"))
+	if err != nil {
+		log.Println("port is not convertable to integer, please chec")
+		return nil, err
+	}
+	user := os.Getenv("user")
+	password := os.Getenv("password")
+	dbname := os.Getenv("dbname")
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)
