@@ -7,5 +7,6 @@ import (
 
 func AuthRouter(authRouter chi.Router) {
 	authRouter.Get("/", controllers.AuthHome)
-	authRouter.Post("/", controllers.Login)
+	authRouter.Post("/login", controllers.Login)
+	authRouter.Post("/signup", controllers.Signup)
 }
