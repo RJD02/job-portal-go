@@ -7,6 +7,7 @@ import (
 
 	"RJD02/job-portal/config"
 	"RJD02/job-portal/db"
+	customMiddleware "RJD02/job-portal/middleware"
 	"RJD02/job-portal/routes"
 
 	"github.com/go-chi/chi/v5"
@@ -75,7 +76,7 @@ func SetupRouter() *chi.Mux {
 	// r.Get("/addadmin", addAdmin)
 
 	r.Route("/auth", routes.AuthRouter)
-	r.Route("/jobs", routes.JobRouter)
+	r.With(customMiddleware.AuthMiddleware).Route("/jobs", routes.JobRouter)
 
 	return r
 }

@@ -1,64 +1,131 @@
 package controllers
 
-// import (
-// 	"RJD02/job-portal/config"
-// 	"RJD02/job-portal/models"
-// 	"database/sql"
-// 	"encoding/json"
-// 	"log"
-// 	"time"
-//
-// 	"net/http"
-// 	"strconv"
-//
-// 	"github.com/go-chi/chi/v5"
-// 	"github.com/google/uuid"
-// )
+import (
+	"RJD02/job-portal/config"
+	"RJD02/job-portal/db"
+	"RJD02/job-portal/models"
+	"RJD02/job-portal/utils"
+	"context"
+	"encoding/json"
 
-// func GetJobs(w http.ResponseWriter, r *http.Request) {
-// 	// get start and end from query params
-// 	startStr := r.URL.Query().Get("start")
-// 	start := 0
-// 	if startStr != "" {
-// 		var err error
-// 		start, err = strconv.Atoi(startStr)
-// 		if err != nil {
-//
-// 			http.Error(w, "Invalid start", http.StatusBadRequest)
-// 			return
-// 		}
-// 	}
-// 	// get 10 jobs
-// 	rows, err := config.AppConfig.Db.Query("select company_name, created, img, description, role, id from job_portal.jobs order by created desc limit 10 offset $1", start)
-// 	if err != nil {
-// 		http.Error(w, "Error in getting jobs", http.StatusInternalServerError)
-// 		return
-// 	}
-//
-// 	defer rows.Close()
-//
-// 	jobs := []models.Job{}
-//
-// 	for rows.Next() {
-// 		var j models.Job
-// 		err := rows.Scan(&j.CompanyName, &j.Created, &j.Img, &j.Description, &j.Role, &j.Id)
-// 		if err != nil {
-// 			log.Println("Error in scanning", err)
-// 			http.Error(w, "Error in scanning", http.StatusInternalServerError)
-// 			return
-// 		}
-// 		jobs = append(jobs, j)
-// 	}
-//
-// 	if len(jobs) == 0 {
-// 		http.Error(w, "No jobs found", http.StatusNotFound)
-// 		return
-// 	}
-//
-// 	w.Header().Set("Content-Type", "application/json")
-// 	// return the jobs
-// 	json.NewEncoder(w).Encode(jobs)
-// }
+	"net/http"
+	"strconv"
+)
+
+func GetJobs(w http.ResponseWriter, r *http.Request) {
+	var response models.Response
+	// get start and end from query params
+	startStr := r.URL.Query().Get("start")
+	start := 0
+	if startStr != "" {
+		var err error
+		start, err = strconv.Atoi(startStr)
+		if err != nil {
+
+			http.Error(w, "Invalid start", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// get 10 jobs
+	jobs, err := config.AppConfig.Db.Job.
+		FindMany().
+		OrderBy(db.Job.LastModified.Order(db.DESC)).
+		Skip(start).
+		Take(10).Exec(context.Background())
+
+	if err != nil {
+		response.Message = "Something went wrong when fetching jobs"
+		response.ResponseCode = http.StatusInternalServerError
+		response.Error = err.Error()
+		utils.HandleResponse(w, response)
+		return
+	}
+
+	if len(jobs) == 0 {
+		response.ResponseCode = http.StatusOK
+		response.Message = "No jobs found"
+		utils.HandleResponse(w, response)
+		return
+	}
+
+	response.Message = "Successfully fetched the jobs"
+	response.ResponseCode = http.StatusOK
+	response.Data = jobs
+	utils.HandleResponse(w, response)
+
+}
+
+func AddJob(w http.ResponseWriter, r *http.Request) {
+	var job models.Job
+	var response models.Response
+
+	err := json.NewDecoder(r.Body).Decode(&job)
+
+	if err != nil {
+		response.ResponseCode = http.StatusBadRequest
+		response.Message = "Error in decoding request body"
+		response.Error = err.Error()
+		utils.HandleResponse(w, response)
+		return
+	}
+
+	addedJob, err := config.AppConfig.Db.Job.CreateOne(
+		db.Job.CompanyName.Set(job.CompanyName),
+		db.Job.Img.Set(job.Img),
+		db.Job.Description.Set(job.Description),
+		db.Job.Role.Set(job.Role),
+	).Exec(context.Background())
+
+	if err != nil {
+		response.ResponseCode = http.StatusInternalServerError
+		response.Message = "Failed creating the job"
+		response.Error = err.Error()
+		utils.HandleResponse(w, response)
+		return
+	}
+
+	response.ResponseCode = http.StatusOK
+	response.Data = addedJob
+	utils.HandleResponse(w, response)
+}
+
+func GetJob(w http.ResponseWriter, r *http.Request) {
+	jobId := r.URL.Query().Get("jobid")
+	var response models.Response
+
+	if jobId == "" {
+		response.ResponseCode = http.StatusNotFound
+		response.Message = "job id was not passed"
+		utils.HandleResponse(w, response)
+		return
+	}
+
+	dbJob, err := config.AppConfig.Db.Job.FindUnique(
+		db.Job.ID.Equals(jobId),
+	).Exec(context.Background())
+
+	if err != nil {
+		response.Message = "Error getting job"
+		response.Error = err.Error()
+		response.ResponseCode = http.StatusInternalServerError
+		utils.HandleResponse(w, response)
+		return
+	}
+
+	if dbJob == nil {
+		response.Message = "Job not found with this id"
+		response.ResponseCode = http.StatusNotFound
+		utils.HandleResponse(w, response)
+		return
+	}
+
+	response.Message = "Found job"
+	response.ResponseCode = http.StatusOK
+	response.Data = dbJob
+	utils.HandleResponse(w, response)
+}
+
 //
 // func GetJob(w http.ResponseWriter, r *http.Request) {
 // 	var j models.Job

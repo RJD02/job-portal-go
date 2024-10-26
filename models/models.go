@@ -13,12 +13,14 @@ type User struct {
 }
 
 type Job struct {
-	CompanyName string    `json:"company_name"`
-	Created     time.Time `json:"created"`
-	Img         string    `json:"img"`
-	Description string    `json:"description"`
-	Role        string    `json:"role"`
-	Id          string    `json:"id"`
+	Id           string    `json:"id"`
+	CompanyName  string    `json:"companyName"`
+	Created      time.Time `json:"created"`
+	Img          string    `json:"img"`
+	Description  string    `json:"description"`
+	Role         string    `json:"role"`
+	IsActive     bool      `json:"isactive"`
+	LastModified time.Time `json:"lastModified"`
 }
 
 type Response struct {

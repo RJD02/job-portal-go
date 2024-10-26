@@ -25,4 +25,6 @@ model Job {
     img String
     description String
     role String
+    isActive Boolean? @default(true)
+    lastModified DateTime? @updatedAt 
 }
