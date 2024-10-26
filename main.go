@@ -20,31 +20,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 	// how to import a file in go
 }
 
-//	func addAdmin(w http.ResponseWriter, r *http.Request) {
-//		ctx := context.Background()
-//		// how to import a file in go
-//		createdUser, err := config.AppConfig.Db.User.CreateOne(
-//			db.User.Username.Set("admin"),
-//			db.User.Password.Set("admin"),
-//			db.User.Email.Set("admin@admin.com"),
-//		).Exec(ctx)
-//		// rows, err := config.AppConfig.Db.Query("insert into job_portal.users (username, password) values ('admin', 'admin')")
-//		if err != nil {
-//			log.Println("Error in inserting admin", err)
-//			return
-//		}
-//
-//		log.Println("User added: ", createdUser)
-//
-//		w.Write([]byte("Admin added"))
-//	}
-func main() {
-	// init the dotenv
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading the dot env file")
-		return
-	}
+func setupConfig(config *config.Config) {
 
 	JWT_SECRET_KEY := os.Getenv("SECRET_KEY")
 	if JWT_SECRET_KEY == "" {
@@ -57,11 +33,37 @@ func main() {
 		panic(err)
 	}
 
+	FROM_GMAIL := os.Getenv("FROM_GMAIL")
+	GMAIL_PASSWORD := os.Getenv("GMAIL_PASSWORD")
+	TO_GMAIL := os.Getenv("TO_GMAIL")
+
+	if FROM_GMAIL == "" || GMAIL_PASSWORD == "" || TO_GMAIL == "" {
+		panic("GMAIL Credentials not set")
+	}
+
+	ENVIRONMENT := os.Getenv("ENVIRONMENT")
+
+	config.AddSecretKey(JWT_SECRET_KEY)
+	config.Connect(client)
+
+	config.AddGmailCreds(FROM_GMAIL, GMAIL_PASSWORD, TO_GMAIL)
+	config.SetEnv(ENVIRONMENT)
+}
+
+func main() {
+	// init the dotenv
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading the dot env file")
+		return
+	}
+
 	// db.TestDB(postgres_db)
 
 	// app-wide state
-	config.AppConfig.AddSecretKey(JWT_SECRET_KEY)
-	config.AppConfig.Connect(client)
+	setupConfig(&config.AppConfig)
+
+	log.Println("Current Environment: ", config.AppConfig.ENVIRONMENT)
 
 	log.Println("Connected to database")
 
