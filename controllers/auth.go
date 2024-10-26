@@ -6,13 +6,12 @@ import (
 	"RJD02/job-portal/mail"
 	"RJD02/job-portal/models"
 	"RJD02/job-portal/utils"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
+	"context"
 	"sync"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -25,50 +24,6 @@ func AuthHome(w http.ResponseWriter, r *http.Request) {
 	utils.HandleResponse(w, response)
 }
 
-func updateUser(user db.UserModel, signedToken string, expiry time.Time) (*db.UserModel, error) {
-	ctx := context.Background()
-	updatedUser, err := config.AppConfig.Db.User.FindUnique(
-		db.User.ID.Equals(user.ID),
-	).Update(db.User.Token.Set(signedToken), db.User.Expiry.Set(expiry)).Exec(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return updatedUser, nil
-}
-
-func createToken(user db.UserModel) (string, *db.UserModel, error) {
-	SECRET_KEY := config.AppConfig.JWT_SECRET_KEY
-
-	expiry := time.Now().Add(time.Hour * 24 * 2)
-
-	claims := jwt.MapClaims{
-		"username": user.Username,
-		"exp":      expiry.Unix(),
-		"email":    user.Email,
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	signedToken, err := token.SignedString([]byte(SECRET_KEY))
-	if err != nil {
-		return "", nil, err
-	}
-
-	updatedUser, err := updateUser(user, signedToken, expiry)
-
-	if err != nil {
-		return "", nil, err
-	}
-
-	return signedToken, updatedUser, nil
-}
-
-type JWTClaims struct {
-	username string
-	exp      time.Time
-	email    string
-}
-
 func MagicLogin(w http.ResponseWriter, r *http.Request) {
 	queryToken := r.URL.Query().Get("token")
 	queryEmail := r.URL.Query().Get("email")
@@ -77,7 +32,7 @@ func MagicLogin(w http.ResponseWriter, r *http.Request) {
 
 	token, err := jwt.Parse(queryToken, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %w", token.Header["alg"])
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 		}
 
 		return []byte(config.AppConfig.JWT_SECRET_KEY), nil
@@ -168,7 +123,7 @@ func ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create token and attach to the user
-	signedToken, updatedUser, err := createToken(*user)
+	signedToken, updatedUser, err := utils.CreateTokenAndUpdateUser(*user)
 	if err != nil {
 		response.ResponseCode = http.StatusInternalServerError
 		response.Message = "Error while creating a token"
@@ -193,7 +148,6 @@ func ForgotPassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
-	SECRET_KEY := config.AppConfig.JWT_SECRET_KEY
 	var req_user models.User
 	var response models.Response
 	var user *db.UserModel
@@ -210,12 +164,12 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req_user.Username == "" {
+	if req_user.Email != "" {
 		user, err = config.AppConfig.Db.User.FindUnique(
 			db.User.Email.Equals(req_user.Email),
 		).Exec(ctx)
 		log.Println("No username")
-	} else if req_user.Email == "" {
+	} else if req_user.Username != "" {
 		user, err = config.AppConfig.Db.User.FindUnique(
 			db.User.Username.Equals(req_user.Username),
 		).Exec(ctx)
@@ -227,24 +181,6 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err != nil {
-		response.ResponseCode = http.StatusBadRequest
-		response.Message = "Both username and email didn't match"
-		response.Error = err.Error()
-		response.Data = nil
-		utils.HandleResponse(w, response)
-		return
-	}
-
-	if user != nil {
-		userJson, err := json.Marshal(user)
-		if err != nil {
-
-		} else {
-			log.Println(string(userJson))
-		}
-	}
-
 	// hash req_user's password and check with db_user's password
 	if !utils.CheckPasswordHash(req_user.Password, user.Password) {
 		response.Message = "Wrong password provided"
@@ -252,29 +188,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		utils.HandleResponse(w, response)
 	}
 
-	// jwt logic
-	expiry := time.Now().Add(time.Hour * 24 * 2)
-
-	claims := jwt.MapClaims{
-		"username": user.Username,
-		"exp":      expiry.Unix(),
-		"email":    user.Email,
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	signedToken, err := token.SignedString([]byte(SECRET_KEY))
-	if err != nil {
-		response.Error = err.Error()
-		response.ResponseCode = http.StatusInternalServerError
-		response.Message = "Error while siging the jwt token"
-		utils.HandleResponse(w, response)
-		return
-	}
-
-	updatedUser, err := config.AppConfig.Db.User.FindUnique(
-		db.User.ID.Equals(user.ID),
-	).Update(db.User.Token.Set(signedToken), db.User.Expiry.Set(expiry)).Exec(ctx)
+	_, updatedUser, err := utils.CreateTokenAndUpdateUser(*user)
 
 	if err != nil {
 		response.Error = err.Error()
@@ -291,7 +205,6 @@ func Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func Signup(w http.ResponseWriter, r *http.Request) {
-	SECRET_KEY := config.AppConfig.JWT_SECRET_KEY
 	var req_user models.User
 	ctx := context.Background()
 	response := models.Response{}
@@ -322,34 +235,20 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expiry := time.Now().Add(time.Hour * 24 * 2)
-
-	claims := jwt.MapClaims{
-		"username": req_user.Username,
-		"exp":      expiry.Unix(),
-		"email":    req_user.Email,
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	signedToken, err := token.SignedString([]byte(SECRET_KEY))
-	if err != nil {
-		response.Error = err.Error()
-		response.ResponseCode = http.StatusInternalServerError
-		response.Message = "Error while signing the jwt token"
-		utils.HandleResponse(w, response)
-		return
-	}
-
 	user, err := config.AppConfig.Db.User.CreateOne(
 		db.User.Username.Set(req_user.Username),
 		db.User.Password.Set(req_user.Password),
 		db.User.Email.Set(req_user.Email),
-		db.User.Token.Set(signedToken),
-		db.User.Expiry.Set(expiry),
 	).Exec(ctx)
 
 	if err != nil {
+		if _, ok := db.IsErrUniqueConstraint(err); ok {
+			response.ResponseCode = http.StatusBadRequest
+			response.Message = "Username/Email is not unique"
+			response.Error = err.Error()
+			utils.HandleResponse(w, response)
+			return
+		}
 		response.ResponseCode = http.StatusInternalServerError
 		response.Message = "Error while inserting new user to db"
 		response.Error = err.Error()
@@ -357,9 +256,19 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_, updatedUser, err := utils.CreateTokenAndUpdateUser(*user)
+
+	if err != nil {
+		response.ResponseCode = http.StatusInternalServerError
+		response.Message = "Error while create and update user"
+		response.Error = err.Error()
+		utils.HandleResponse(w, response)
+		return
+	}
+
 	response.ResponseCode = http.StatusOK
 	response.Message = "User Added"
-	response.Data = user
+	response.Data = updatedUser
 	utils.HandleResponse(w, response)
 
 }
