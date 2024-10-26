@@ -25,6 +25,12 @@ type SignupRequest struct {
 	Email    string `json:"email"`
 }
 
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
+}
+
 var repeatedRequest SignupRequest
 
 func TestAuthHome(t *testing.T) {
@@ -129,6 +135,48 @@ func TestAuthSignupRepeatedDetails(t *testing.T) {
 	expectedStatusCode := http.StatusBadRequest
 	gotStatusCode := recorder.Code
 	message := fmt.Sprintf("Expected %d got %d", expectedStatusCode, gotStatusCode)
+
+	assert.Equal(t, expectedStatusCode, gotStatusCode, message)
+}
+
+func TestAuthLoginGood(t *testing.T) {
+	r := SetupRouter()
+	loginRequest := LoginRequest{
+		Username: repeatedRequest.Username,
+		Email:    repeatedRequest.Email,
+		Password: repeatedRequest.Password,
+	}
+
+	loginRequestJson, err := json.Marshal(loginRequest)
+
+	if err != nil {
+		t.Fatal("Cannot marshal request json")
+	}
+
+	req, err := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(loginRequestJson))
+	if err != nil {
+		t.Fatal("Error creating request", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	recorder := httptest.NewRecorder()
+
+	r.ServeHTTP(recorder, req)
+
+	expectedStatusCode := http.StatusOK
+	gotStatusCode := recorder.Code
+	message := fmt.Sprintf("Expected status code %d got %d", expectedStatusCode, gotStatusCode)
+
+	var response APIResponse
+
+	err = json.Unmarshal(recorder.Body.Bytes(), &response)
+
+	if err != nil {
+		t.Fatal("Cannot marshal request json")
+	}
+
+	fmt.Println(response.Message, loginRequest.Email, loginRequest.Username)
 
 	assert.Equal(t, expectedStatusCode, gotStatusCode, message)
 }
