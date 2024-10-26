@@ -50,23 +50,17 @@ func setupConfig(config *config.Config) {
 	config.SetEnv(ENVIRONMENT)
 }
 
-func main() {
-	// init the dotenv
+func SetupRouter() *chi.Mux {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading the dot env file")
-		return
+		return nil
 	}
 
 	// db.TestDB(postgres_db)
 
 	// app-wide state
 	setupConfig(&config.AppConfig)
-
-	log.Println("Current Environment: ", config.AppConfig.ENVIRONMENT)
-
-	log.Println("Connected to database")
-
 	r := chi.NewRouter()
 
 	c := cors.New(cors.Options{
@@ -83,6 +77,21 @@ func main() {
 	r.Route("/auth", routes.AuthRouter)
 	r.Route("/jobs", routes.JobRouter)
 
+	return r
+}
+
+func run() {
+	// init the dotenv
+
+	log.Println("Current Environment: ", config.AppConfig.ENVIRONMENT)
+
+	log.Println("Connected to database")
+
+	r := SetupRouter()
 	log.Println("Server started on port 5000")
 	http.ListenAndServe("localhost:5000", r)
+}
+
+func main() {
+	run()
 }
