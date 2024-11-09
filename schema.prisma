@@ -7,6 +7,12 @@ generator db {
     provider = "go run github.com/steebchen/prisma-client-go"
 }
 
+enum Role {
+    USER
+    ADMIN
+    MODERATOR
+}
+
 model User {
     id String @default(cuid()) @id
     created DateTime @default(now())
@@ -16,6 +22,7 @@ model User {
     email String @unique
     token String?
     expiry DateTime?
+    role Role @default(USER)
 }
 
 model Job {

@@ -11,6 +11,8 @@ import (
 
 	"net/http"
 	"strconv"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func GetJobs(w http.ResponseWriter, r *http.Request) {
@@ -87,8 +89,6 @@ func GetJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("Count = ", countResult[0].Count)
-
 	response.Message = "Successfully fetched the jobs"
 	response.ResponseCode = http.StatusOK
 	response.Data = goodJob{
@@ -105,7 +105,6 @@ func AddJob(w http.ResponseWriter, r *http.Request) {
 	var response models.Response
 
 	role, ok := r.Context().Value("role").(string)
-	log.Println("role is :", role)
 	if !ok || role != "admin" {
 		response.ResponseCode = http.StatusForbidden
 		response.Message = "Aww, this route is for admins only"
@@ -149,7 +148,7 @@ func AddJob(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetJob(w http.ResponseWriter, r *http.Request) {
-	jobId := r.URL.Query().Get("jobid")
+	jobId := chi.URLParam(r, "id")
 	var response models.Response
 
 	if jobId == "" {
@@ -164,6 +163,13 @@ func GetJob(w http.ResponseWriter, r *http.Request) {
 	).Exec(context.Background())
 
 	if err != nil {
+		if ok := db.IsErrNotFound(err); ok {
+			response.ResponseCode = http.StatusNotFound
+			response.Message = "Job not found"
+			response.Error = err.Error()
+			utils.HandleResponse(w, response)
+			return
+		}
 		response.Message = "Error getting job"
 		response.Error = err.Error()
 		response.ResponseCode = http.StatusInternalServerError

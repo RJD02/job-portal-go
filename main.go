@@ -55,11 +55,13 @@ func SetupRouter() *chi.Mux {
 	r := chi.NewRouter()
 
 	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"POST", "GET", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: true,
 	})
 
 	r.Use(middleware.Logger)
-	r.Use(customMiddleware.CorsMiddleware)
 	r.Use(c.Handler)
 	r.Get("/", home)
 
