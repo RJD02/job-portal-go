@@ -16,6 +16,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
+//go:generate go run github.com/steebchen/prisma-client-go generate
+
 func home(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Nevla"))
 	// how to import a file in go
