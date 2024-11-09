@@ -52,8 +52,7 @@ func setupConfig(config *config.Config) {
 func SetupRouter() *chi.Mux {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading the dot env file")
-		return nil
+		log.Println("Error loading the dot env file")
 	}
 
 	// app-wide state
