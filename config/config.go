@@ -22,6 +22,7 @@ type Config struct {
 	GMAIL_PASSWORD   string
 	ENVIRONMENT      Environment
 	ADMIN_SECRET_KEY string
+	PORT             string
 }
 
 var AppConfig Config = Config{}
@@ -64,4 +65,13 @@ func (appConfig *Config) SetAdminKey(key string) {
 		panic("No ADMIN_KEY set")
 	}
 	appConfig.ADMIN_SECRET_KEY = key
+}
+
+func (appConfig *Config) SetPort(port string) {
+	if port == "" {
+		port = "5000"
+	}
+
+	appConfig.PORT = port
+
 }

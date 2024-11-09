@@ -35,6 +35,10 @@ func setupConfig(config *config.Config) {
 
 	ENVIRONMENT := os.Getenv("ENVIRONMENT")
 
+	port := os.Getenv("PORT")
+
+	config.SetPort(port)
+
 	config.AddSecretKey(JWT_SECRET_KEY)
 	config.Connect(client)
 
@@ -82,7 +86,7 @@ func run() {
 	log.Println("Mounted the routes")
 
 	log.Println("Server started on port 5000")
-	err := http.ListenAndServe("localhost:5000", r)
+	err := http.ListenAndServe(":"+config.AppConfig.PORT, r)
 	log.Println("I'm failing", err)
 }
 

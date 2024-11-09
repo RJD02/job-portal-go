@@ -7,7 +7,6 @@ import (
 	"RJD02/job-portal/utils"
 	"context"
 	"encoding/json"
-	"log"
 
 	"net/http"
 	"strconv"
