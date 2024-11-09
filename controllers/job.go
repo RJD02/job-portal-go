@@ -7,22 +7,44 @@ import (
 	"RJD02/job-portal/utils"
 	"context"
 	"encoding/json"
+	"log"
 
 	"net/http"
 	"strconv"
 )
 
 func GetJobs(w http.ResponseWriter, r *http.Request) {
+	type goodJob struct {
+		Data  []db.JobModel `json:"jobs"`
+		Total string        `json:"total"`
+	}
 	var response models.Response
 	// get start and end from query params
 	startStr := r.URL.Query().Get("start")
+	maxResultsStr := r.URL.Query().Get("maxResult")
 	start := 0
+	maxResults := 10
 	if startStr != "" {
 		var err error
 		start, err = strconv.Atoi(startStr)
 		if err != nil {
 
-			http.Error(w, "Invalid start", http.StatusBadRequest)
+			response.Message = "start property is not set correctly"
+			response.Error = err.Error()
+			response.ResponseCode = http.StatusBadRequest
+			utils.HandleResponse(w, response)
+			return
+		}
+	}
+
+	if maxResultsStr != "" {
+		var err error
+		maxResults, err = strconv.Atoi(maxResultsStr)
+		if err != nil {
+			response.ResponseCode = http.StatusBadRequest
+			response.Error = err.Error()
+			response.Message = "maxResults property is not set correctly"
+			utils.HandleResponse(w, response)
 			return
 		}
 	}
@@ -32,12 +54,28 @@ func GetJobs(w http.ResponseWriter, r *http.Request) {
 		FindMany().
 		OrderBy(db.Job.LastModified.Order(db.DESC)).
 		Skip(start).
-		Take(10).Exec(context.Background())
+		Take(maxResults).
+		Exec(context.Background())
 
 	if err != nil {
 		response.Message = "Something went wrong when fetching jobs"
 		response.ResponseCode = http.StatusInternalServerError
 		response.Error = err.Error()
+		utils.HandleResponse(w, response)
+		return
+	}
+
+	var countResult []struct {
+		Count string `json:"count"`
+	}
+	if err := config.AppConfig.Db.
+		Prisma.
+		QueryRaw("SELECT COUNT(*) AS count FROM \"Job\"").
+		Exec(context.Background(), &countResult); err != nil {
+		response.ResponseCode = http.StatusInternalServerError
+		response.Error = err.Error()
+		response.Message =
+			"Something went wrong when getting total count of jobs"
 		utils.HandleResponse(w, response)
 		return
 	}
@@ -49,18 +87,35 @@ func GetJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println("Count = ", countResult[0].Count)
+
 	response.Message = "Successfully fetched the jobs"
 	response.ResponseCode = http.StatusOK
-	response.Data = jobs
+	response.Data = goodJob{
+		Data:  jobs,
+		Total: countResult[0].Count,
+	}
 	utils.HandleResponse(w, response)
 
 }
 
+// should only be accessed by admin
 func AddJob(w http.ResponseWriter, r *http.Request) {
-	var job models.Job
+	var job_ db.JobModel
 	var response models.Response
 
-	err := json.NewDecoder(r.Body).Decode(&job)
+	role, ok := r.Context().Value("role").(string)
+	log.Println("role is :", role)
+	if !ok || role != "admin" {
+		response.ResponseCode = http.StatusForbidden
+		response.Message = "Aww, this route is for admins only"
+		utils.HandleResponse(w, response)
+		return
+	}
+
+	// check if the admin_secret_key is present in the request
+
+	err := json.NewDecoder(r.Body).Decode(&job_)
 
 	if err != nil {
 		response.ResponseCode = http.StatusBadRequest
@@ -71,10 +126,12 @@ func AddJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	addedJob, err := config.AppConfig.Db.Job.CreateOne(
-		db.Job.CompanyName.Set(job.CompanyName),
-		db.Job.Img.Set(job.Img),
-		db.Job.Description.Set(job.Description),
-		db.Job.Role.Set(job.Role),
+		db.Job.CompanyName.Set(job_.CompanyName),
+		db.Job.Img.Set(job_.Img),
+		db.Job.Description.Set(job_.Description),
+		db.Job.Role.Set(job_.Role),
+		db.Job.ShortDescription.Set(job_.ShortDescription),
+		db.Job.Salary.Set(job_.Salary),
 	).Exec(context.Background())
 
 	if err != nil {
@@ -87,6 +144,7 @@ func AddJob(w http.ResponseWriter, r *http.Request) {
 
 	response.ResponseCode = http.StatusOK
 	response.Data = addedJob
+	response.Message = "Successfully added the job"
 	utils.HandleResponse(w, response)
 }
 
@@ -125,47 +183,3 @@ func GetJob(w http.ResponseWriter, r *http.Request) {
 	response.Data = dbJob
 	utils.HandleResponse(w, response)
 }
-
-//
-// func GetJob(w http.ResponseWriter, r *http.Request) {
-// 	var j models.Job
-// 	id := chi.URLParam(r, "id")
-// 	err := config.AppConfig.Db.QueryRow("select id, company_name, created, img, description, role from job_portal.jobs where id = $1", id).Scan(&j.Id, &j.CompanyName, &j.Created, &j.Img, &j.Description, &j.Role)
-// 	if err != nil {
-// 		if err == sql.ErrNoRows {
-// 			http.Error(w, "Job not found", http.StatusNotFound)
-// 		} else {
-// 			http.Error(w, "Error in getting job", http.StatusInternalServerError)
-// 			log.Println("Error in getting job", err)
-// 		}
-// 		return
-// 	}
-//
-// 	w.Header().Set("Content-Type", "application/json")
-// 	json.NewEncoder(w).Encode(j)
-//
-// }
-//
-// func AddJob(w http.ResponseWriter, r *http.Request) {
-// 	// get the job from request body
-// 	var j models.Job
-// 	err := json.NewDecoder(r.Body).Decode(&j)
-// 	if err != nil {
-// 		http.Error(w, "Error in decoding", http.StatusBadRequest)
-// 		return
-// 	}
-//
-// 	j.Created = time.Now()
-//
-// 	j.Id = uuid.New().String()
-//
-// 	// insert the job
-// 	_, err = config.AppConfig.Db.Exec("insert into job_portal.jobs (company_name, img, description, role, created, id) values ($1, $2, $3, $4, current_timestamp, $5)", j.CompanyName, j.Img, j.Description, j.Role, j.Id)
-// 	if err != nil {
-// 		http.Error(w, "Error in inserting job", http.StatusInternalServerError)
-// 		log.Println("Error in inserting job", err)
-// 		return
-// 	}
-//
-// 	w.Write([]byte("Job added"))
-// }

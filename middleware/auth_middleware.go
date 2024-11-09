@@ -6,6 +6,7 @@ import (
 	"RJD02/job-portal/utils"
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -59,8 +60,16 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), "user", claims)
+			token := r.Header.Get("X-Admin-Auth")
+			var ctx context.Context
+			if token == config.AppConfig.ADMIN_SECRET_KEY {
 
+				ctx = context.WithValue(r.Context(), "role", "admin")
+			} else {
+
+				ctx = context.WithValue(r.Context(), "role", "user")
+			}
+			log.Println(ctx.Value("role"))
 			next.ServeHTTP(w, r.WithContext(ctx))
 		} else {
 			response.ResponseCode = http.StatusUnauthorized

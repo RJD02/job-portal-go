@@ -244,7 +244,7 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if _, ok := db.IsErrUniqueConstraint(err); ok {
 			response.ResponseCode = http.StatusBadRequest
-			response.Message = "Username/Email is not unique"
+			response.Message = "Username/Email already exists"
 			response.Error = err.Error()
 			utils.HandleResponse(w, response)
 			return
