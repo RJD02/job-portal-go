@@ -1,5 +1,4 @@
 tmp/
-go.sum
 .env
 *_gen.go
 migrations/
