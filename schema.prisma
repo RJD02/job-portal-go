@@ -1,30 +1,41 @@
 datasource db {
-    provider = "postgres"
-    url = env("DATABASE_URL")
+  provider = "postgres"
+  url      = env("DATABASE_URL")
 }
 
 generator db {
-    provider = "go run github.com/steebchen/prisma-client-go"
+  provider = "go run github.com/steebchen/prisma-client-go"
+}
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
 }
 
 model User {
-    id String @default(cuid()) @id
-    created DateTime @default(now())
-    lastModified DateTime? @updatedAt
-    username String @unique
-    password String
-    email String @unique
-    token String?
-    expiry DateTime?
+  id           String    @id @default(cuid())
+  created      DateTime  @default(now())
+  lastModified DateTime? @updatedAt
+  username     String    @unique
+  password     String
+  email        String    @unique
+  token        String?
+  expiry       DateTime?
+  role         Role      @default(USER)
 }
 
 model Job {
-    id String @default(cuid()) @id
-    companyName String 
-    created DateTime @default(now())
-    img String
-    description String
-    role String
-    isActive Boolean? @default(true)
-    lastModified DateTime? @updatedAt 
+  id               String    @id @default(cuid())
+  companyName      String
+  created          DateTime  @default(now())
+  img              String
+  description      String
+  role             String
+  isActive         Boolean?  @default(true)
+  lastModified     DateTime? @updatedAt
+  salary           String    @default("0")
+  shortDescription String
+  applyLink        String
+  deadline         DateTime? @default(now())
 }

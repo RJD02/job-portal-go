@@ -134,7 +134,6 @@ func ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	baseURL := r.Host
 	magicLink := fmt.Sprintf("http://%s/auth/magic-login?email=%s&token=%s", baseURL, updatedUser.Email, signedToken)
 	emailBody := mail.GenerateMagicLinkEmail(updatedUser.Username, magicLink)
-	log.Println("Email body: ", emailBody)
 	subject := "Here's your magic link to login"
 
 	wg.Add(1)
@@ -181,6 +180,13 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user == nil {
+		response.ResponseCode = http.StatusBadRequest
+		response.Message = "User not found"
+		utils.HandleResponse(w, response)
+		return
+	}
+
 	// hash req_user's password and check with db_user's password
 	if !utils.CheckPasswordHash(req_user.Password, user.Password) {
 		response.Message = "Wrong password provided"
@@ -198,7 +204,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Data = updatedUser
+	response.Data = *updatedUser
 	response.Message = "Successfully fetched the user"
 	response.ResponseCode = http.StatusOK
 	utils.HandleResponse(w, response)
@@ -244,7 +250,7 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if _, ok := db.IsErrUniqueConstraint(err); ok {
 			response.ResponseCode = http.StatusBadRequest
-			response.Message = "Username/Email is not unique"
+			response.Message = "Username/Email already exists"
 			response.Error = err.Error()
 			utils.HandleResponse(w, response)
 			return
