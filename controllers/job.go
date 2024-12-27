@@ -129,6 +129,7 @@ func AddJob(w http.ResponseWriter, r *http.Request) {
 		db.Job.Description.Set(job_.Description),
 		db.Job.Role.Set(job_.Role),
 		db.Job.ShortDescription.Set(job_.ShortDescription),
+		db.Job.ApplyLink.Set(job_.ApplyLink),
 		db.Job.Salary.Set(job_.Salary),
 	).Exec(context.Background())
 

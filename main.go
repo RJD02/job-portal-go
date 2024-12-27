@@ -1,14 +1,15 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
 
 	"RJD02/job-portal/config"
 	"RJD02/job-portal/db"
-	customMiddleware "RJD02/job-portal/middleware"
 	"RJD02/job-portal/routes"
+	"RJD02/job-portal/utils"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -60,7 +61,7 @@ func SetupRouter() *chi.Mux {
 	r := chi.NewRouter()
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   []string{"http://localhost:5173", "https://jobs-nearme.web.app"},
 		AllowedMethods:   []string{"POST", "GET", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
@@ -71,7 +72,7 @@ func SetupRouter() *chi.Mux {
 	r.Get("/", home)
 
 	r.Route("/auth", routes.AuthRouter)
-	r.With(customMiddleware.AuthMiddleware).Route("/jobs", routes.JobRouter)
+	r.Route("/jobs", routes.JobRouter)
 
 	return r
 }
@@ -80,17 +81,23 @@ func run() {
 
 	r := SetupRouter()
 
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go utils.RunUpdateInactiveLinksDaily(ctx)
+	defer cancel()
+
 	log.Println("Current Environment: ", config.AppConfig.ENVIRONMENT)
 
 	log.Println("Connected to database")
 
 	log.Println("Mounted the routes")
 
-	log.Println("Server started on port 5000")
-	err := http.ListenAndServe(":"+config.AppConfig.PORT, r)
+	log.Println("Server started on port ", config.AppConfig.PORT)
+	err := http.ListenAndServe("localhost:"+config.AppConfig.PORT, r)
 	log.Println("I'm failing", err)
 }
 
 func main() {
 	run()
+	defer config.AppConfig.Db.Disconnect()
 }
