@@ -37,5 +37,5 @@ model Job {
   salary           String    @default("0")
   shortDescription String
   applyLink        String
-  deadline         DateTime? @default(now())
+  deadline         DateTime @default(now())
 }

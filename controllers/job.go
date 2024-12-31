@@ -7,12 +7,112 @@ import (
 	"RJD02/job-portal/utils"
 	"context"
 	"encoding/json"
+	"strings"
 
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
+
+func SearchJobs(w http.ResponseWriter, r *http.Request) {
+	type goodJob struct {
+		Data  []db.JobModel `json:"jobs"`
+		Total string        `json:"total"`
+	}
+	var response models.Response
+	// get start and end from query params
+	startStr := r.URL.Query().Get("start")
+	maxResultsStr := r.URL.Query().Get("maxResult")
+	start := 0
+	searchTerm := r.URL.Query().Get("term")
+	searchTerm = strings.ToLower(searchTerm)
+	maxResults := 10
+	if startStr != "" {
+		var err error
+		start, err = strconv.Atoi(startStr)
+		if err != nil {
+
+			response.Message = "start property is not set correctly"
+			response.Error = err.Error()
+			response.ResponseCode = http.StatusBadRequest
+			utils.HandleResponse(w, response)
+			return
+		}
+	}
+
+	if maxResultsStr != "" {
+		var err error
+		maxResults, err = strconv.Atoi(maxResultsStr)
+		if err != nil {
+			response.ResponseCode = http.StatusBadRequest
+			response.Error = err.Error()
+			response.Message = "maxResults property is not set correctly"
+			utils.HandleResponse(w, response)
+			return
+		}
+	}
+
+	jobs := []db.JobModel{}
+
+	query := `
+    SELECT * FROM "Job" j
+    WHERE lower("role") LIKE '%' || $1 || '%'
+    OR lower("description") LIKE '%' || $1 || '%'
+    OR lower("shortDescription") LIKE '%' || $1 || '%'
+    OR lower("companyName") LIKE '%' || $1 || '%'
+    OR lower("salary") LIKE '%' || $1 || '%'
+    OR lower("applyLink") LIKE '%' || $1 || '%'
+    ORDER BY "lastModified" DESC
+    LIMIT $2
+    OFFSET $3
+    `
+
+	err := config.AppConfig.Db.Prisma.QueryRaw(query, searchTerm, maxResults, start).Exec(context.Background(), &jobs)
+
+	if err != nil {
+		response.Message = "Something went wrong when fetching jobs"
+		response.ResponseCode = http.StatusInternalServerError
+		response.Error = err.Error()
+		utils.HandleResponse(w, response)
+		return
+	}
+
+	var countResult []struct {
+		Count string `json:"count"`
+	}
+	if err := config.AppConfig.Db.
+		Prisma.
+		QueryRaw(query, searchTerm, maxResults, start).
+		Exec(context.Background(), &countResult); err != nil {
+		response.ResponseCode = http.StatusInternalServerError
+		response.Error = err.Error()
+		response.Message =
+			"Something went wrong when getting total count of jobs"
+		utils.HandleResponse(w, response)
+		return
+	}
+
+	if len(jobs) == 0 {
+		response.ResponseCode = http.StatusOK
+		response.Message = "No jobs found"
+		response.Data = goodJob{
+			Data:  jobs,
+			Total: "0",
+		}
+		utils.HandleResponse(w, response)
+		return
+	}
+
+	response.Message = "Successfully fetched the jobs"
+	response.ResponseCode = http.StatusOK
+	response.Data = goodJob{
+		Data:  jobs,
+		Total: countResult[0].Count,
+	}
+	utils.HandleResponse(w, response)
+
+}
 
 func GetJobs(w http.ResponseWriter, r *http.Request) {
 	type goodJob struct {
@@ -131,6 +231,8 @@ func AddJob(w http.ResponseWriter, r *http.Request) {
 		db.Job.ShortDescription.Set(job_.ShortDescription),
 		db.Job.ApplyLink.Set(job_.ApplyLink),
 		db.Job.Salary.Set(job_.Salary),
+		db.Job.ShortDescription.Set(job_.ShortDescription),
+		db.Job.Deadline.Set(job_.Deadline),
 	).Exec(context.Background())
 
 	if err != nil {
