@@ -8,10 +8,11 @@ import (
 )
 
 func JobRouter(jobRouter chi.Router) {
-	jobRouter.With(middleware.AuthMiddleware).Get("/{id}", controllers.GetJob)
-	// jobRouter.Get("/{id}", controllers.GetJob)
-	jobRouter.With(middleware.AuthMiddleware).Get("/", controllers.GetJobs)
-	// jobRouter.Get("/", controllers.GetJobs)
+	// jobRouter.With(middleware.AuthMiddleware).Get("/{id}", controllers.GetJob)
+	jobRouter.Get("/{id}", controllers.GetJob)
+	// jobRouter.With(middleware.AuthMiddleware).Get("/", controllers.GetJobs)
+	jobRouter.Get("/", controllers.GetJobs)
 	jobRouter.With(middleware.AuthMiddleware).Post("/", controllers.AddJob)
-	jobRouter.With(middleware.AuthMiddleware).Get("/search", controllers.SearchJobs)
+	jobRouter.Get("/search", controllers.SearchJobs)
+	// jobRouter.With(middleware.AuthMiddleware).Get("/search", controllers.SearchJobs)
 }
