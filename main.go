@@ -93,7 +93,7 @@ func run() {
 	log.Println("Mounted the routes")
 
 	log.Println("Server started on port ", config.AppConfig.PORT)
-	err := http.ListenAndServe("localhost:"+config.AppConfig.PORT, r)
+	err := http.ListenAndServe(":"+config.AppConfig.PORT, r)
 	log.Println("I'm failing", err)
 }
 
